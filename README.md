@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CRM Uygulaması
 
-## Getting Started
+Bu proje, müşteri ilişkileri yönetimi için geliştirilmiş bir web uygulamasıdır. [Next.js](https://nextjs.org) kullanılarak oluşturulmuştur.
 
-First, run the development server:
+## Özellikler
+
+- Müşteri yönetimi ve düzenleme
+- Kullanıcı yönetimi
+- Takım yönetimi
+- Randevu kategorileri
+- Randevu slotları
+- QC (Kalite Kontrol) takibi
+- Lider tablosu
+- Profil sayfası
+- Başarı oranı grafikleri
+- Modern ve kullanıcı dostu arayüz
+
+## Kurulum
+
+### Gereksinimleri
+
+- Node.js 18.0.0 veya daha yüksek
+- npm veya yarn
+- PocketBase sunucusu (Backend için)
+
+### Projeyi İndirme
+
+```bash
+git clone https://github.com/uzeyirrr/yenicrm.git
+cd yenicrm
+```
+
+### Bağımlılıkları Yükleme
+
+```bash
+npm install
+# veya
+yarn install
+```
+
+### Geliştirme Sunucusunu Başlatma
 
 ```bash
 npm run dev
-# or
+# veya
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tarayıcınızda [http://localhost:3000](http://localhost:3000) adresini açarak uygulamayı görebilirsiniz.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Backend Kurulumu
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Bu uygulama backend olarak PocketBase kullanmaktadır. PocketBase sunucusunu kurmak için:
 
-## Learn More
+1. [PocketBase](https://pocketbase.io/docs/) web sitesinden PocketBase'i indirin
+2. İndirdiğiniz dosyayı çıkarın ve çalıştırın
+3. PocketBase admin paneline erişin ve gerekli koleksiyonları oluşturun
+4. `src/lib/pocketbase.ts` dosyasındaki API URL'sini kendi PocketBase sunucunuzun URL'si ile güncelleyin
 
-To learn more about Next.js, take a look at the following resources:
+## Dağıtım
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Bu Next.js uygulamasını dağıtmak için en kolay yol [Vercel Platform](https://vercel.com/new)'u kullanmaktır.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Katkıda Bulunma
 
-## Deploy on Vercel
+1. Bu depoyu fork edin
+2. Kendi branch'inizi oluşturun (`git checkout -b feature/amazing-feature`)
+3. Değişikliklerinizi commit edin (`git commit -m 'Add some amazing feature'`)
+4. Branch'inize push yapın (`git push origin feature/amazing-feature`)
+5. Pull Request açın
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## İletişim
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Uzeyir Ismail Bahtiyar - uzeyirismailbahtiyar@gmail.com
+
+Proje Linki: [https://github.com/uzeyirrr/yenicrm](https://github.com/uzeyirrr/yenicrm)

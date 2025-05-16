@@ -1,0 +1,1 @@
+harika şimdi tasarımı olusturmaya baslayalım her sayfada kullanılcak bir sidebar olucak 

@@ -21,7 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { pb, ensureAdminAuth } from '@/lib/pocketbase';
+import { pb, ensureAuth } from '@/lib/pocketbase';
 
 export default function NewUserPage() {
   const router = useRouter();
@@ -64,7 +64,7 @@ export default function NewUserPage() {
     
     try {
       // Ensure we're authenticated as admin
-      await ensureAdminAuth();
+      await ensureAuth();
       
       // Create the user
       const userData = {

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
 import { Slot, getSlots, deleteSlot } from "@/lib/slotService";
-import { isAuthenticated, adminLogin, ensureAdminAuth } from "@/lib/pocketbase";
+import { isAuthenticated, ensureAuth } from "@/lib/pocketbase";
 import { pb } from "@/lib/pocketbase";
 
 import { Button } from "@/components/ui/button";
@@ -105,7 +105,7 @@ export default function SlotsPage() {
     const initializeAndLoad = async () => {
       try {
         if (!isAuthenticated()) {
-          await adminLogin();
+          throw new Error('Kullanıcı oturumu geçersiz. Lütfen tekrar giriş yapın.');
         }
         
         // Get page from URL or default to 1
@@ -472,7 +472,8 @@ export default function SlotsPage() {
                     <TableCell>
                       <div className="flex items-center">
                         <Building className="h-4 w-4 mr-2 text-gray-500" />
-                        {typeof slot.company === 'object' && slot.company ? slot.company.name : 'Belirtilmemiş'}
+                        {slot.expand?.company ? slot.expand.company.name : 
+                         (typeof slot.company === 'object' && slot.company ? slot.company.name : 'Belirtilmemiş')}
                       </div>
                     </TableCell>
                     <TableCell>

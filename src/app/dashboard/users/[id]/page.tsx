@@ -21,7 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { pb, ensureAdminAuth } from '@/lib/pocketbase';
+import { pb, ensureAuth } from '@/lib/pocketbase';
 
 export default function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
   // Resolve params Promise with React.use()
@@ -51,7 +51,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
         setError('');
         
         // Ensure we're authenticated
-        await ensureAdminAuth();
+        await ensureAuth();
         
         // Get user data
         const user = await pb.collection('users').getOne(resolvedParams.id);
@@ -103,8 +103,8 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
     setError('');
     
     try {
-      // Ensure we're authenticated as admin
-      await ensureAdminAuth();
+      // Ensure we're authenticated
+      await ensureAuth();
       
       // Prepare update data
       const updateData: any = {

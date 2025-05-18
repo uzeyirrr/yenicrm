@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Customer } from '@/lib/types';
 import { getCustomers, deleteCustomer, searchCustomers } from '@/lib/customerService';
-import { isAuthenticated, adminLogin } from '@/lib/pocketbase';
+import { isAuthenticated } from '@/lib/pocketbase';
 import Link from 'next/link';
 import { Search, X } from 'lucide-react';
 
@@ -18,7 +18,8 @@ export default function CustomersPage() {
     const initializeAndLoad = async () => {
       try {
         if (!isAuthenticated()) {
-          await adminLogin();
+          setError('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+          return;
         }
         await loadCustomers();
       } catch (err) {

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { pb } from '@/lib/pocketbase';
@@ -19,28 +20,76 @@ import {
   BuildingOfficeIcon,
   Cog6ToothIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 
+// Rol bazlı menü öğeleri tanımı
 const menuItems = [
-  { name: 'Ana Sayfa', href: '/dashboard', icon: HomeIcon },
-  { name: 'Kullanıcı Yönetimi', href: '/dashboard/users', icon: UsersIcon },
-  { name: 'Takımlar', href: '/dashboard/teams', icon: UserGroupIcon },
-  { name: 'Takvim', href: '/dashboard/calendar', icon: CalendarIcon },
-  { name: 'Slot Yönetimi', href: '/dashboard/slots', icon: ClockIcon },
-  { name: 'Randevu Kategorileri', href: '/dashboard/appointment-categories', icon: BookmarkIcon },
-  { name: 'Müşteriler', href: '/dashboard/customers', icon: UserCircleIcon },
-  { name: 'Ön Kalite Kontrol', href: '/dashboard/qc', icon: ClipboardDocumentCheckIcon },
-  { name: 'Kalite Kontrol Final', href: '/dashboard/final-quality', icon: ClipboardDocumentListIcon },
-  { name: 'Lider Tablosu', href: '/dashboard/leaderboard', icon: TrophyIcon },
-  { name: 'Şirketler', href: '/dashboard/companies', icon: BuildingOfficeIcon },
-  { name: 'Ayarlar', href: '/dashboard/settings', icon: Cog6ToothIcon },
+  // Sadece admin için görünür
+  { name: 'Ana Sayfa', href: '/dashboard', icon: HomeIcon, roles: ['admin'] },
+  
+  // Sadece admin için görünür
+  { name: 'Kullanıcı Yönetimi', href: '/dashboard/users', icon: UsersIcon, roles: ['admin'] },
+  { name: 'Takımlar', href: '/dashboard/teams', icon: UserGroupIcon, roles: ['admin'] },
+  { name: 'Slot Yönetimi', href: '/dashboard/slots', icon: ClockIcon, roles: ['admin'] },
+  
+  // Admin ve qcmanager için görünür
+  { name: 'Randevu Kategorileri', href: '/dashboard/appointment-categories', icon: BookmarkIcon, roles: ['admin', 'qcmanager'] },
+  { name: 'Müşteriler', href: '/dashboard/customers', icon: UserCircleIcon, roles: ['admin', 'qcmanager'] },
+  { name: 'Satış Kontrol', href: '/dashboard/sales', icon: ChartBarIcon, roles: ['admin', 'qcmanager'] },
+  { name: 'Ön Kalite Kontrol', href: '/dashboard/qc', icon: ClipboardDocumentCheckIcon, roles: ['admin', 'qcmanager'] },
+  { name: 'Kalite Kontrol Final', href: '/dashboard/final-quality', icon: ClipboardDocumentListIcon, roles: ['admin', 'qcmanager'] },
+  
+  // Herkes için görünür
+  { name: 'Takvim', href: '/dashboard/calendar', icon: CalendarIcon, roles: ['admin', 'qcmanager', 'agent'] },
+  { name: 'Lider Tablosu', href: '/dashboard/leaderboard', icon: TrophyIcon, roles: ['admin', 'qcmanager', 'agent'] },
+  
+  // Sadece admin için görünür
+  { name: 'Şirketler', href: '/dashboard/companies', icon: BuildingOfficeIcon, roles: ['admin'] },
 ];
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>('agent'); // Varsayılan rol
+  const [isClient, setIsClient] = useState(false);
   const pathname = usePathname();
-  const user = getCurrentUser();
+  
+  // İstemci tarafında olduğumuzu belirle
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  // Kullanıcı profil bilgilerini yükle
+  useEffect(() => {
+    if (!isClient) return;
+    
+    const loadUserProfile = async () => {
+      try {
+        // Önce kullanıcının giriş yapmış olduğunu kontrol et
+        if (!pb.authStore.isValid) return;
+        
+        // Kullanıcı detaylarını getir
+        const userId = pb.authStore.model?.id;
+        if (!userId) return;
+        
+        const userData = await pb.collection('users').getOne(userId, {
+          expand: 'profile'
+        });
+        setUserProfile(userData);
+        
+        // Kullanıcı rolünü belirle
+        const userRole = userData.role || 'agent';
+        console.log('Kullanıcı rolü:', userRole);
+        setUserRole(userRole);
+      } catch (error) {
+        console.error('Kullanıcı profili yüklenirken hata:', error);
+      }
+    };
+    
+    loadUserProfile();
+  }, [isClient]);
 
   return (
     <div className={`bg-gray-800 text-white transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'} min-h-screen relative flex flex-col justify-between`}>
@@ -62,26 +111,30 @@ export default function Sidebar() {
           </div>
           <nav>
             <ul className="space-y-2">
-              {menuItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center space-x-2 p-2 rounded-lg transition-colors duration-200
-                        ${isActive 
-                          ? 'bg-indigo-600 text-white' 
-                          : 'text-gray-300 hover:bg-gray-700'
-                        }`}
-                    >
-                      <item.icon className={`h-6 w-6 ${collapsed ? 'mx-auto' : ''}`} />
-                      <span className={`transition-opacity duration-200 ${collapsed ? 'opacity-0 hidden' : 'opacity-100'}`}>
-                        {item.name}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
+              {menuItems
+                // Kullanıcının rolüne göre menü öğelerini filtrele
+                .filter(item => item.roles.includes(userRole))
+                .map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <li key={item.name}>
+                      <Link
+                        href={item.href}
+                        className={`flex items-center space-x-2 p-2 rounded-lg transition-colors duration-200
+                          ${isActive 
+                            ? 'bg-indigo-600 text-white' 
+                            : 'text-gray-300 hover:bg-gray-700'
+                          }`}
+                      >
+                        <item.icon className={`h-6 w-6 ${collapsed ? 'mx-auto' : ''}`} />
+                        <span className={`transition-opacity duration-200 ${collapsed ? 'opacity-0 hidden' : 'opacity-100'}`}>
+                          {item.name}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+            
             </ul>
           </nav>
         </div>
@@ -97,9 +150,22 @@ export default function Sidebar() {
               : 'text-gray-300 hover:bg-gray-700'
             }`}
         >
-          <UserCircleIcon className={`h-8 w-8 ${collapsed ? 'mx-auto' : ''}`} />
+          {isClient && userProfile && userProfile.avatar ? (
+            <div className={`relative h-10 w-10 overflow-hidden rounded-full ${collapsed ? 'mx-auto' : ''}`}>
+              <Image 
+                src={`${pb.baseUrl}/api/files/users/${userProfile.id}/${userProfile.avatar}`}
+                alt={userProfile.name || 'Kullanıcı'}
+                width={40}
+                height={40}
+                className="object-cover"
+              />
+            </div>
+          ) : (
+            <UserCircleIcon className={`h-10 w-10 ${collapsed ? 'mx-auto' : ''}`} />
+          )}
+          
           <div className={`transition-opacity duration-200 ${collapsed ? 'opacity-0 hidden' : 'opacity-100'}`}>
-            <div className="font-medium">Admin</div>
+            <div className="font-medium">{isClient && userProfile ? userProfile.name || pb.authStore.model?.email || 'Kullanıcı' : 'Kullanıcı'}</div>
             <div className="text-sm text-gray-400">Profili Görüntüle</div>
           </div>
         </Link>

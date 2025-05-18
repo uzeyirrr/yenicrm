@@ -1,4 +1,4 @@
-import { pb, ensureAdminAuth, adminLogin } from './pocketbase';
+import { pb, ensureAuth } from './pocketbase';
 
 export type User = {
     id: string;
@@ -15,14 +15,14 @@ export async function getUsers(): Promise<User[]> {
     console.log('Fetching all users from API...');
     
     try {
-        // Ensure we're authenticated as admin
+        // Ensure we're authenticated
         if (!pb.authStore.isValid) {
-            console.log('Auth store is not valid, attempting to authenticate...');
-            await adminLogin();
+            console.log('Auth store is not valid');
+            throw new Error('Kullanıcı oturumu geçersiz. Lütfen tekrar giriş yapın.');
         }
         
-        // Make sure we have admin authentication
-        await ensureAdminAuth();
+        // Make sure we have authentication
+        await ensureAuth();
         
         // Try to fetch users using PocketBase Admin API
         try {
@@ -119,45 +119,74 @@ export async function getUsers(): Promise<User[]> {
 }
 
 // Get current user
-export async function getCurrentUser(): Promise<User | null> {
+export function getCurrentUser(): User | null {
     try {
-        // First check if we're authenticated
         if (!pb.authStore.isValid) {
-            throw new Error('Kullanıcı oturumu geçersiz. Lütfen tekrar giriş yapın.');
+            console.log('Auth store not valid, returning null');
+            return null;
         }
         
-        await ensureAdminAuth();
-        const authData = pb.authStore.model;
-        if (!authData) return null;
+        const user = pb.authStore.model;
         
-        // Try to get user from PocketBase
-        try {
-            const user = await pb.collection('users').getOne(authData.id, {
-                requestKey: null // Disable request caching/cancellation
-            });
-            return {
-                id: user.id,
-                username: user.username,
-                email: user.email || '',
-                name: user.name,
-                avatar: user.avatar,
-                created: user.created,
-                updated: user.updated
-            };
-        } catch (err) {
-            // Return mock current user if API call fails
-            return {
-                id: 'admin1',
-                username: 'admin',
-                email: 'admin@example.com',
-                name: 'Admin User',
-                avatar: '',
-                created: new Date().toISOString(),
-                updated: new Date().toISOString()
-            };
+        if (!user) {
+            console.log('No user in auth store, returning null');
+            return null;
         }
+        
+        // Map to consistent format
+        return {
+            id: user.id,
+            username: user.username,
+            email: user.email || '',
+            name: user.name || '',
+            avatar: user.avatar,
+            created: user.created,
+            updated: user.updated,
+            role: user.role
+        } as User;
     } catch (error) {
-        console.error('Error fetching current user:', error);
+        console.error('Error getting current user:', error);
         return null;
+    }
+}
+
+// Update current user
+export async function updateCurrentUser(userData: {
+    name?: string;
+    email?: string;
+}): Promise<User | null> {
+    try {
+        if (!pb.authStore.isValid) {
+            console.log('Auth store not valid, cannot update user');
+            return null;
+        }
+        
+        const user = pb.authStore.model;
+        
+        if (!user) {
+            console.log('No user in auth store, cannot update');
+            return null;
+        }
+        
+        // Update user data
+        const updatedUser = await pb.collection('users').update(user.id, {
+            name: userData.name !== undefined ? userData.name : user.name,
+            email: userData.email !== undefined ? userData.email : user.email,
+        });
+        
+        // Map to consistent format
+        return {
+            id: updatedUser.id,
+            username: updatedUser.username,
+            email: updatedUser.email || '',
+            name: updatedUser.name || '',
+            avatar: updatedUser.avatar,
+            created: updatedUser.created,
+            updated: updatedUser.updated,
+            role: updatedUser.role
+        } as User;
+    } catch (error) {
+        console.error('Error updating current user:', error);
+        throw error;
     }
 }

@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Edit, Trash, UserPlus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { pb, ensureAdminAuth } from '@/lib/pocketbase';
+import { pb, ensureAuth } from '@/lib/pocketbase';
 
 type ExtendedUser = User & {
   teamName: string;
@@ -34,7 +34,7 @@ export default function UsersPage() {
       setError('');
       
       // Ensure we're authenticated
-      await ensureAdminAuth();
+      await ensureAuth();
       
       // Load users, teams, and customers in parallel
       const [usersList, teamsList, customersList] = await Promise.all([
@@ -82,7 +82,7 @@ export default function UsersPage() {
     }
     
     try {
-      await ensureAdminAuth();
+      await ensureAuth();
       await pb.collection('users').delete(userId);
       // Refresh the list
       await loadData();

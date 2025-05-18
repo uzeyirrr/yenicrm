@@ -1,4 +1,4 @@
-import { pb, ensureAdminAuth } from './pocketbase';
+import { pb, ensureAuth } from './pocketbase';
 import { Customer } from './types';
 
 // RecordModel'i Customer tipine dönüştür
@@ -18,6 +18,7 @@ function recordToCustomer(record: any): Customer {
         roof_type: record.roof_type || '',
         what_talked: record.what_talked || '',
         roof: record.roof || '',
+        note: record.note || '',
         qc_on: record.qc_on || 'Yeni',
         qc_final: record.qc_final || 'Yeni',
         agent: record.agent || '',
@@ -30,7 +31,7 @@ function recordToCustomer(record: any): Customer {
 export async function getCustomers(page: number = 1, perPage: number = 100) {
     try {
         // Ensure authentication before making the request
-        await ensureAdminAuth();
+        await ensureAuth();
 
         // Add retry logic for network issues
         let attempts = 0;
@@ -86,7 +87,7 @@ export async function getCustomer(id: string) {
             console.log(`Attempt ${attempts}/${maxAttempts} to fetch customer data`);
             
             // Ensure we're authenticated
-            await ensureAdminAuth();
+            await ensureAuth();
             
             // Try using PocketBase SDK first
             try {
@@ -144,7 +145,7 @@ export async function getCustomer(id: string) {
 // Yeni müşteri ekle
 export async function createCustomer(customerData: Omit<Customer, 'id' | 'created' | 'updated'>) {
     try {
-        await ensureAdminAuth();
+        await ensureAuth();
         const record = await pb.collection('customers').create(customerData);
         return recordToCustomer(record);
     } catch (error) {
@@ -156,7 +157,7 @@ export async function createCustomer(customerData: Omit<Customer, 'id' | 'create
 // Müşteri güncelle
 export async function updateCustomer(id: string, customerData: Partial<Customer>) {
     try {
-        await ensureAdminAuth();
+        await ensureAuth();
         const record = await pb.collection('customers').update(id, customerData);
         return recordToCustomer(record);
     } catch (error) {
@@ -168,7 +169,7 @@ export async function updateCustomer(id: string, customerData: Partial<Customer>
 // Müşteri sil
 export async function deleteCustomer(id: string) {
     try {
-        await ensureAdminAuth();
+        await ensureAuth();
         await pb.collection('customers').delete(id);
     } catch (error) {
         console.error('Müşteri silinirken hata:', error);
@@ -180,7 +181,7 @@ export async function deleteCustomer(id: string) {
 export async function searchCustomers(searchTerm: string) {
     try {
         // Ensure authentication before making the request
-        await ensureAdminAuth();
+        await ensureAuth();
         
         if (!searchTerm || searchTerm.trim() === '') {
             return getCustomers(); // Return all customers if search term is empty

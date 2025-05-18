@@ -1,4 +1,4 @@
-import { pb, ensureAdminAuth } from './pocketbase';
+import { pb, ensureAuth } from './pocketbase';
 
 export type AppointmentCategory = {
     id: string;
@@ -14,7 +14,7 @@ export type AppointmentCategory = {
 export async function getAppointmentCategories() {
     try {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log('Fetching appointment categories...');
         
@@ -48,7 +48,7 @@ export async function getAppointmentCategories() {
 export async function getAppointmentCategory(id: string) {
     try {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log(`Fetching appointment category with ID: ${id}`);
         
@@ -74,7 +74,7 @@ export async function getAppointmentCategory(id: string) {
 export async function createAppointmentCategory(data: Omit<AppointmentCategory, 'id' | 'created' | 'updated'>) {
     try {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log('Creating new appointment category:', data);
         
@@ -100,7 +100,7 @@ export async function createAppointmentCategory(data: Omit<AppointmentCategory, 
 export async function updateAppointmentCategory(id: string, data: Partial<AppointmentCategory>) {
     try {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log(`Updating appointment category ${id} with data:`, data);
         
@@ -126,7 +126,7 @@ export async function updateAppointmentCategory(id: string, data: Partial<Appoin
 export async function deleteAppointmentCategory(id: string) {
     try {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log(`Deleting appointment category with ID: ${id}`);
         

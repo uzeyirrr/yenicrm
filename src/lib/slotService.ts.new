@@ -1,6 +1,5 @@
 import { pb, ensureAuth } from './pocketbase';
-import { Appointment, Slot } from './types';
-export type { Slot } from './types';
+import { Slot, Appointment } from './types';
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -49,8 +48,6 @@ export async function getSlots(filters: {
     company?: string;
     category?: string;
     deaktif?: boolean;
-    startDate?: string;
-    endDate?: string;
     search?: string;
 } = {}) {
     return withRetry(async () => {
@@ -63,30 +60,19 @@ export async function getSlots(filters: {
         const filterConditions = [];
         
         if (filters.date) {
-            // Exact date match
-            filterConditions.push(`date ~ "${filters.date}"`);
-        } else if (filters.startDate && filters.endDate) {
-            // Date range match
-            filterConditions.push(`date >= "${filters.startDate}" && date <= "${filters.endDate}"`);
+            filterConditions.push(`date = '${filters.date}'`);
         }
         
         if (filters.team) {
-            // Handle multiple teams (comma-separated)
-            if (filters.team.includes(',')) {
-                const teamIds = filters.team.split(',');
-                const teamConditions = teamIds.map(id => `team ~ "${id}"`).join(' || ');
-                filterConditions.push(`(${teamConditions})`);
-            } else {
-                filterConditions.push(`team ~ "${filters.team}"`);
-            }
+            filterConditions.push(`team = '${filters.team}'`);
         }
         
         if (filters.company) {
-            filterConditions.push(`company = "${filters.company}"`);
+            filterConditions.push(`company = '${filters.company}'`);
         }
         
         if (filters.category) {
-            filterConditions.push(`category = "${filters.category}"`);
+            filterConditions.push(`category = '${filters.category}'`);
         }
         
         if (filters.deaktif !== undefined) {
@@ -97,13 +83,11 @@ export async function getSlots(filters: {
             filterConditions.push(`name ~ '${filters.search}'`);
         }
         
-        const filterString = filterConditions.length > 0 
-            ? filterConditions.join(' && ')
-            : '';
+        const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
         
         // Get slots with expanded relations
         const records = await pb.collection('appointments_slots').getList(1, 100, {
-            sort: '-date,-start',
+            sort: '-date,-created',
             filter: filterString,
             expand: 'team,category,company,appointments',
             requestKey: `slots-${Date.now()}` // Prevent request caching
@@ -248,77 +232,60 @@ export async function getSlotAppointments(slotId: string) {
         // Ensure authentication
         await ensureAuth();
         
-        console.log(`Fetching appointments for slot ID: ${slotId}`);
+        console.log(`Fetching appointments for slot: ${slotId}`);
         
-        try {
-            // Önce slot'u getir ve appointments alanını kontrol et
-            const slotRecord = await pb.collection('appointments_slots').getOne(slotId, {
-                expand: 'appointments'
-            });
-            
-            console.log('Slot record:', slotRecord);
-            
-            if (slotRecord.expand?.appointments && Array.isArray(slotRecord.expand.appointments)) {
-                console.log(`Found ${slotRecord.expand.appointments.length} appointments in slot expand`);
-                
-                // Expanded appointments'ları dönüştür
-                const appointments = slotRecord.expand.appointments.map((record: any) => {
-                    return {
-                        id: record.id,
-                        name: record.name || '',
-                        date: record.date || '',
-                        time: record.time || '',
-                        slot: record.slot || '',
-                        customer: record.customer || '',
-                        team: record.team || [],
-                        category: record.category || '',
-                        company: record.company || '',
-                        status: record.status || '',
-                        created: record.created,
-                        updated: record.updated,
-                        expand: record.expand || {}
-                    };
-                });
-                
-                return appointments;
-            } else {
-                // Alternatif yöntem: doğrudan appointments koleksiyonundan sorgula
-                console.log('No expanded appointments found, querying appointments collection directly');
-                
-                const records = await pb.collection('appointments').getList(1, 100, {
-                    filter: `slot = '${slotId}'`,
-                    expand: 'customer,customer.company',
-                    sort: 'created'
-                });
-                
-                console.log(`Directly fetched ${records.items.length} appointments for slot ${slotId}`);
-                
-                // Map to consistent format
-                const appointments = records.items.map((record: any) => {
-                    return {
-                        id: record.id,
-                        name: record.name || '',
-                        date: record.date || '',
-                        time: record.time || '',
-                        slot: record.slot || '',
-                        customer: record.customer || '',
-                        team: record.team || [],
-                        category: record.category || '',
-                        company: record.company || '',
-                        status: record.status || '',
-                        created: record.created,
-                        updated: record.updated,
-                        expand: record.expand || {}
-                    };
-                });
-                
-                return appointments;
-            }
-        } catch (error) {
-            console.error(`Error fetching appointments for slot ${slotId}:`, error);
-            // Hata durumunda boş dizi döndür
+        // Get slot with expanded relations
+        const slot = await pb.collection('appointments_slots').getOne(slotId, {
+            expand: 'appointments,appointments.customer,appointments.agent'
+        });
+        
+        if (!slot.expand?.appointments) {
             return [];
         }
+        
+        // Map to consistent format
+        const appointments = slot.expand.appointments.map((record: any) => {
+            // Process customer
+            const customer = record.expand?.customer || {};
+            const mappedCustomer = customer ? {
+                id: customer.id || '',
+                surname: customer.surname || '',
+                tel: customer.tel || '',
+                email: customer.email || '',
+                qc_final: customer.qc_final || 'Yeni',
+                created: customer.created || '',
+                updated: customer.updated || ''
+            } : null;
+            
+            // Process agent
+            const agent = record.expand?.agent || {};
+            const mappedAgent = agent ? {
+                id: agent.id || '',
+                name: agent.name || '',
+                email: agent.email || '',
+                avatar: agent.avatar || '',
+                created: agent.created || '',
+                updated: agent.updated || ''
+            } : null;
+            
+            return {
+                id: record.id,
+                title: record.title || '',
+                description: record.description || '',
+                slot: record.slot || '',
+                customer: record.customer || '',
+                agent: record.agent || '',
+                status: record.status || '',
+                created: record.created,
+                updated: record.updated,
+                expand: {
+                    customer: mappedCustomer,
+                    agent: mappedAgent
+                }
+            };
+        });
+        
+        return appointments;
     }, `getSlotAppointments(${slotId})`);
 }
 
@@ -330,19 +297,16 @@ export async function emptyAppointment(appointmentId: string) {
         
         console.log(`Emptying appointment with ID: ${appointmentId}`);
         
-        try {
-            // Update appointment to remove customer and set status to empty
-            const updatedAppointment = await pb.collection('appointments').update(appointmentId, {
-                customer: null,  // Remove customer relation
-                status: "empty" // Set status to empty
-            });
-            
-            console.log(`Successfully emptied appointment ${appointmentId}`);
-            return updatedAppointment;
-        } catch (error) {
-            console.error(`Error emptying appointment ${appointmentId}:`, error);
-            throw error;
-        }
+        // Update appointment
+        await pb.collection('appointments').update(appointmentId, {
+            customer: null,
+            status: 'empty'
+        });
+        
+        // Fetch the updated appointment
+        const record = await pb.collection('appointments').getOne(appointmentId);
+        
+        return record;
     }, `emptyAppointment(${appointmentId})`);
 }
 
@@ -352,48 +316,13 @@ export async function generateSlotPdfData(slotId: string) {
         // Ensure authentication
         await ensureAuth();
         
-        // Get slot with all related data
+        // Get slot with expanded relations
         const slot = await getSlot(slotId);
-        
-        // Get appointments for the slot
         const appointments = await getSlotAppointments(slotId);
         
-        // Return combined data for PDF generation
         return {
             slot,
             appointments
         };
     }, `generateSlotPdfData(${slotId})`);
-}
-
-// Subscribe to slot changes
-export function subscribeToSlots(callback: (data: any) => void, options: any = {}) {
-    // Ensure authentication is already done before calling this
-    
-    // Subscribe to slots collection
-    return pb.collection('appointments_slots').subscribe('*', (data) => {
-        console.log('Slot change detected:', data);
-        callback(data);
-    }, options);
-}
-
-// Subscribe to specific slot changes
-export function subscribeToSlot(id: string, callback: (data: any) => void, options: any = {}) {
-    // Ensure authentication is already done before calling this
-    
-    // Subscribe to specific slot
-    return pb.collection('appointments_slots').subscribe(id, (data) => {
-        console.log(`Slot ${id} change detected:`, data);
-        callback(data);
-    }, options);
-}
-
-// Unsubscribe from all slot changes
-export function unsubscribeFromSlots() {
-    pb.collection('appointments_slots').unsubscribe();
-}
-
-// Unsubscribe from specific slot changes
-export function unsubscribeFromSlot(id: string) {
-    pb.collection('appointments_slots').unsubscribe(id);
 }

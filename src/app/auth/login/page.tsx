@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push('/dashboard'); // Başarılı girişten sonra dashboard'a yönlendir
+      router.push('/dashboard/profile'); // Başarılı girişten sonra dashboard'a yönlendir
     } catch (err) {
       setError('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
     } finally {

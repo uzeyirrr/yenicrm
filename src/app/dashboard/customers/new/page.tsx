@@ -22,6 +22,7 @@ type FormData = {
   roof_type: string;
   what_talked: string;
   roof: string;
+  note: string;
   qc_on: 'Yeni';
   qc_final: 'Yeni';
   agent: string;
@@ -50,6 +51,7 @@ export default function NewCustomerPage() {
     roof_type: '',
     what_talked: '',
     roof: '',
+    note: '',
     qc_on: 'Yeni' as const,
     qc_final: 'Yeni' as const,
     agent: ''
@@ -83,6 +85,36 @@ export default function NewCustomerPage() {
       reader.readAsDataURL(file);
     }
   };
+  
+  // Panodaki görseli yükleme fonksiyonu
+  const handlePasteImage = (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          setRoofImage(file);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setRoofPreview(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+          break;
+        }
+      }
+    }
+  };
+  
+  // Paste event listener'ı ekleyelim
+  useEffect(() => {
+    document.addEventListener('paste', handlePasteImage);
+    
+    return () => {
+      document.removeEventListener('paste', handlePasteImage);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +138,7 @@ export default function NewCustomerPage() {
         await pb.collection('customers').update(record.id, formData);
       }
 
-      router.push('/dashboard/customers');
+      router.push('/dashboard/profile');
     } catch (err) {
       console.error('Error creating customer:', err);
       setError('Müşteri eklenirken bir hata oluştu');
@@ -344,6 +376,7 @@ export default function NewCustomerPage() {
                   <p className="pl-1">veya sürükleyip bırakın</p>
                 </div>
                 <p className="text-xs text-gray-500">PNG, JPG, GIF max 10MB</p>
+                <p className="text-xs text-gray-500 mt-1">Ayrıca <span className="font-semibold">Ctrl+V</span> ile panodaki görseli yapıştırabilirsiniz</p>
               </div>
             </div>
           </div>
@@ -358,24 +391,33 @@ export default function NewCustomerPage() {
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
-
+          
           <div>
-            <label className="block text-sm font-medium text-gray-700">Çatı</label>
-            <input
-              type="text"
-              name="roof"
-              value={formData.roof}
+            <label className="block text-sm font-medium text-gray-700">Notlar</label>
+            <textarea
+              name="note"
+              value={formData.note}
               onChange={handleChange}
+              rows={3}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              placeholder="Müşteri ile ilgili notları buraya ekleyebilirsiniz"
             />
           </div>
+
+          {/* Çatı alanı kaldırıldı, sadece görsel yükleme alanı kullanılacak */}
 
           {/* QC fields are hidden and set to 'Yeni' by default */}
           <input type="hidden" name="qc_on" value="Yeni" />
           <input type="hidden" name="qc_final" value="Yeni" />
         </div>
 
-        <div className="flex justify-end space-x-4 pt-6 border-t">
+        <div className="flex justify-between space-x-4 pt-6 border-t">
+          <Link
+            href="/dashboard/profile"
+            className="flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            Geri Dön
+          </Link>
           <button
             type="submit"
             disabled={loading}

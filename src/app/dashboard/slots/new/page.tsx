@@ -40,26 +40,53 @@ import {
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-// Form schema
-const slotFormSchema = z.object({
-  name: z.string().min(1, "Slot adı gereklidir"),
-  date: z.date({
-    required_error: "Tarih seçmelisiniz",
+// Form validation schema
+const formSchema = z.object({
+  name: z.string().min(2, {
+    message: "Slot adı en az 2 karakter olmalıdır",
   }),
-  start: z.string().min(1, "Başlangıç saati gereklidir"),
-  end: z.string().min(1, "Bitiş saati gereklidir"),
-  capacity: z.coerce.number().min(1, "Kapasite en az 1 olmalıdır"),
-  space: z.coerce.number().min(5, "Süre en az 5 dakika olmalıdır"),
-  team: z.string().min(1, "Takım seçmelisiniz"),
-  category: z.string().min(1, "Kategori seçmelisiniz"),
-  company: z.string().min(1, "Şirket seçmelisiniz"),
+  date: z.date({
+    required_error: "Bir tarih seçmelisiniz",
+  }),
+  start: z.string({
+    required_error: "Başlangıç saati gereklidir",
+  }),
+  end: z.string({
+    required_error: "Bitiş saati gereklidir",
+  }),
+  space: z.coerce.number({
+    required_error: "Randevu aralığı gereklidir",
+  }).min(5, "Süre en az 5 dakika olmalıdır"),
+  team: z.string({
+    required_error: "Bir ekip seçmelisiniz",
+  }),
+  category: z.string({
+    required_error: "Bir kategori seçmelisiniz",
+  }),
+  company: z.string({
+    required_error: "Bir firma seçmelisiniz",
+  }),
   deaktif: z.boolean().default(false),
 });
 
-type SlotFormValues = z.infer<typeof slotFormSchema>;
+// Form değerlerinin tipini formSchema'dan türetiyoruz
+type SlotFormValues = z.infer<typeof formSchema>;
+
+// Form değerlerinin tipini açık şekilde tanımlıyoruz
+type FormValues = {
+  name: string;
+  date: Date;
+  start: string;
+  end: string;
+  space: number;
+  team: string;
+  category: string;
+  company: string;
+  deaktif: boolean;
+};
 
 export default function NewSlotPage() {
   const router = useRouter();
@@ -69,17 +96,17 @@ export default function NewSlotPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [appointmentPreview, setAppointmentPreview] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize form
-  const form = useForm<SlotFormValues>({
-    resolver: zodResolver(slotFormSchema),
+  // Initialize form with correct types
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       date: new Date(),
-      start: "09:00",
-      end: "17:00",
-      capacity: 1,
-      space: 30,
+      start: "11:00",
+      end: "19:00",
+      space: 120,
       team: "",
       category: "",
       company: "",
@@ -101,11 +128,9 @@ export default function NewSlotPage() {
         // Load teams
         const teamsResponse = await pb.collection("teams").getList(1, 100);
         setTeams(teamsResponse.items);
-
         // Load categories
-        const categoriesResponse = await pb.collection("categories").getList(1, 100);
+        const categoriesResponse = await pb.collection("appointments_category").getList(1, 100);
         setCategories(categoriesResponse.items);
-
         // Load companies
         const companiesResponse = await pb.collection("companies").getList(1, 100);
         setCompanies(companiesResponse.items);
@@ -153,49 +178,104 @@ export default function NewSlotPage() {
   }, [watchedValues.start, watchedValues.end, watchedValues.space]);
 
   // Handle form submission
-  const onSubmit = async (data: SlotFormValues) => {
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true);
     try {
       setLoading(true);
       setError("");
 
-      // Format date for API
+      // Parse start and end times
+      const parsedStartTime = parse(data.start, "HH:mm", new Date());
+      const parsedEndTime = parse(data.end, "HH:mm", new Date());
+      
+      // Calculate total minutes between start and end
+      const totalMinutes = differenceInMinutes(parsedEndTime, parsedStartTime);
+      
+      // If end time is before start time or same, show error
+      if (totalMinutes <= 0) {
+        setError("Bitiş saati başlangıç saatinden sonra olmalıdır");
+        setLoading(false);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Format date for API - ensure it's in YYYY-MM-DD format
       const formattedDate = format(data.date, "yyyy-MM-dd");
 
-      // Create slot
+      // Prepare slot data with only the essential fields
+      // API dokümantasyonuna göre start ve end number olmalı, team bir dizi olmalı
+      
+      // Saatleri sadece saat kısmını sayı olarak alıyoruz
+      // Format: HH:mm -> sadece saat kısmı (11:00 -> 11, 19:00 -> 19)
+      const startHour = Number(data.start.split(':')[0]);
+      const endHour = Number(data.end.split(':')[0]);
+      
+      console.log(`Saat dönüşümü: ${data.start} -> ${startHour}, ${data.end} -> ${endHour}`);
+      
       const slotData = {
         name: data.name,
         date: formattedDate,
-        start: data.start,
-        end: data.end,
-        capacity: data.capacity,
-        space: data.space,
-        team: data.team,
+        start: startHour, // Sadece saat kısmı (sayı olarak)
+        end: endHour,     // Sadece saat kısmı (sayı olarak)
+        space: Number(data.space), // Ensure it's a number
+        team: [data.team], // Dizi olarak gönder
         category: data.category,
         company: data.company,
-        deaktif: data.deaktif
+        deaktif: false,
       };
 
-      // Create slot and get the created slot ID
-      const createdSlot = await createSlot(slotData);
-      
-      // Generate appointments based on the slot data
-      await generateAppointments(createdSlot.id, data);
-      
-      // Redirect to slot list
-      router.push("/dashboard/slots");
-    } catch (err) {
-      console.error("Error creating slot:", err);
-      setError("Slot oluşturulurken bir hata oluştu");
+      // PocketBase'in beklediği şekilde verileri düzenle
+      // CORS sorunlarını önlemek için PocketBase'in özel ayarlarını kullan
+      pb.autoCancellation(false);
+      console.log("Sending slot data:", slotData);
+
+      try {
+        // CORS sorunlarını önlemek için PocketBase yapılandırması
+        pb.autoCancellation(false);
+
+        // Slot oluşturma işlemi
+        console.log("Slot oluşturuluyor...");
+        const createdSlot = await pb.collection('appointments_slots').create(slotData);
+        console.log("Slot başarıyla oluşturuldu:", createdSlot.id);
+        
+        // Kısa bir bekleme süresi ekle
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Randevuları oluştur
+        await generateAppointments(createdSlot.id, data);
+        
+        // Slot listesine yönlendir
+        router.push("/dashboard/slots");
+      } catch (apiError: any) {
+        console.error("API Error:", apiError);
+        
+        // Handle specific API errors
+        if (apiError.status === 400) {
+          if (apiError.data && apiError.data.message) {
+            setError(`API Hatası: ${apiError.data.message}`);
+          } else {
+            setError("Slot verilerinde eksik veya hatalı alanlar var");
+          }
+        } else {
+          setError(`Slot oluşturulurken bir hata oluştu: ${apiError.message || 'Bilinmeyen hata'}`);
+        }
+      }
+    } catch (err: any) {
+      console.error("Error in form submission:", err);
+      setError(`Slot oluşturulurken bir hata oluştu: ${err.message || 'Bilinmeyen hata'}`);
     } finally {
       setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   // Generate appointments for the slot
   const generateAppointments = async (slotId: string, data: SlotFormValues) => {
     try {
-      const startTime = parse(data.start, "HH:mm", new Date());
-      const endTime = parse(data.end, "HH:mm", new Date());
+      // Use the current date for parsing times
+      const today = new Date();
+      const startTime = parse(data.start, "HH:mm", today);
+      const endTime = parse(data.end, "HH:mm", today);
       
       // Calculate total minutes between start and end
       const totalMinutes = differenceInMinutes(endTime, startTime);
@@ -203,33 +283,92 @@ export default function NewSlotPage() {
       // Calculate number of appointments
       const numberOfAppointments = Math.floor(totalMinutes / data.space);
       
-      // Generate appointment records
-      const appointmentPromises = [];
+      console.log(`Generating ${numberOfAppointments} appointments for slot ${slotId}`);
       
+      // Generate appointment records
+      const formattedDate = format(data.date, "yyyy-MM-dd");
+
+      // Randevuları tek tek oluştur
       for (let i = 0; i < numberOfAppointments; i++) {
-        const appointmentTime = addMinutes(startTime, i * data.space);
-        const formattedTime = format(appointmentTime, "HH:mm");
+        // Başlangıç saatini parse et ve randevu başlangıç saatini hesapla
+        const startTimeObj = parse(data.start, "HH:mm", new Date());
+        const appointmentStartTime = addMinutes(startTimeObj, i * data.space);
+        const formattedStartTime = format(appointmentStartTime, "HH:mm");
+        const shortStartTime = format(appointmentStartTime, "HH"); // Sadece saat kısmı (11, 13 gibi)
         
-        // For each capacity, create an appointment
-        for (let j = 0; j < data.capacity; j++) {
-          const appointmentData = {
-            title: `${data.name} - ${formattedTime}`,
-            slot: slotId,
-            status: "empty", // Initial status
-          };
+        // Randevu bitiş saatini hesapla
+        const appointmentEndTime = addMinutes(appointmentStartTime, data.space);
+        const formattedEndTime = format(appointmentEndTime, "HH:mm");
+        const shortEndTime = format(appointmentEndTime, "HH"); // Sadece saat kısmı (13, 15 gibi)
+        
+        // Randevu zaman aralığını oluştur (11-13, 13-15 gibi)
+        const timeRange = `${shortStartTime}-${shortEndTime}`;
+        console.log(`Randevu zaman aralığı: ${timeRange}`);
+        
+        // Randevu için başlık oluştur - zaman aralığını içerecek şekilde
+        const appointmentTitle = timeRange;
+        console.log(`Randevu başlığı: ${appointmentTitle}`);
+        
+        // API'nin beklediği formatta veri hazırla
+        const appointmentData = {
+          name: appointmentTitle, // Saati içeren isim
+          status: "empty",
+          date: formattedDate,
+          time: formattedStartTime, // String olarak gönder (HH:mm formatında)
+          team: [data.team], // Dizi olarak gönder
+          category: data.category,
+          company: data.company,
+          slot: slotId, // Doğrudan slot ID'sini randevuya ekle
+        };
+        
+        console.log(`Oluşturulan randevu verileri:`, appointmentData);
+        
+        try {
+          // CORS sorunlarını önlemek için ayarlar
+          pb.autoCancellation(false);
           
-          // Create appointment record
-          const promise = pb.collection("appointments").create(appointmentData);
-          appointmentPromises.push(promise);
+          // Önce randevuyu oluştur
+          const createdAppointment = await pb.collection("appointments").create(appointmentData);
+          console.log(`Randevu oluşturuldu: ${formattedStartTime}`, createdAppointment.id);
+          
+          // Randevu oluşturuldu, şimdi slot ile ilişkilendirelim
+          try {
+            // Önce mevcut slot'u al
+            const slot = await pb.collection("appointments_slots").getOne(slotId);
+            
+            // Mevcut randevular listesini al
+            const currentAppointments = slot.appointments || [];
+            
+            // Yeni randevu ID'sini listeye ekle
+            const updatedAppointments = [...currentAppointments, createdAppointment.id];
+            
+            // Slot'u güncelle
+            const updatedSlot = await pb.collection("appointments_slots").update(slotId, {
+              appointments: updatedAppointments
+            });
+            
+            console.log(`Slot güncellendi, randevu ilişkilendirildi:`, updatedSlot.id);
+          } catch (relationError) {
+            console.error(`Slot-Randevu ilişkilendirme hatası:`, relationError);
+          }
+          
+          // Kısa bir bekleme süresi ekle (API'yi aşırı yüklememek için)
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } catch (error) {
+          const appointmentError = error as { data?: { message?: string, [key: string]: any } };
+          console.error(`Randevu oluşturma hatası (${formattedStartTime}):`, appointmentError);
+          // Hata detaylarını göster
+          if (appointmentError.data) {
+            console.error('Hata detayları:', appointmentError.data);
+          }
+          // Bir randevu başarısız olsa bile diğerlerine devam et
         }
       }
       
-      // Wait for all appointments to be created
-      await Promise.all(appointmentPromises);
-      
-      console.log(`Created ${appointmentPromises.length} appointments for slot ${slotId}`);
+      console.log(`Slot için tüm randevular oluşturuldu: ${slotId}`);
     } catch (error) {
-      console.error("Error generating appointments:", error);
+      console.error("Randevu oluşturma genel hatası:", error);
       throw error;
     }
   };
@@ -262,7 +401,11 @@ export default function NewSlotPage() {
             </CardHeader>
             <CardContent>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const values = form.getValues();
+                  onSubmit(values);
+                }} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -333,29 +476,7 @@ export default function NewSlotPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="capacity"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Kapasite (Her Zaman Dilimi İçin)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              placeholder="Kapasite"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Her zaman diliminde kaç kişi alınabilir
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
+                  <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                     <FormField
                       control={form.control}
                       name="space"
@@ -514,9 +635,8 @@ export default function NewSlotPage() {
               {appointmentPreview.length > 0 ? (
                 <div className="space-y-2">
                   <div className="text-sm text-muted-foreground mb-2">
-                    Toplam {appointmentPreview.length} zaman dilimi, her biri için {watchedValues.capacity} randevu oluşturulacak.
                     <div className="font-semibold mt-1">
-                      Toplam {appointmentPreview.length * watchedValues.capacity} randevu
+                      Toplam {appointmentPreview.length} randevu oluşturulacak
                     </div>
                   </div>
                   <div className="max-h-96 overflow-y-auto border rounded-md p-2">

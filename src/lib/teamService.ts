@@ -1,4 +1,4 @@
-import { pb, ensureAdminAuth } from './pocketbase';
+import { pb, ensureAuth } from './pocketbase';
 import { User } from './types';
 
 export type Team = {
@@ -32,7 +32,7 @@ async function withRetry<T>(operation: () => Promise<T>, operationName: string):
                 console.log('Authentication error detected, clearing auth store');
                 pb.authStore.clear();
                 // Force re-authentication on next attempt
-                await ensureAdminAuth();
+                await ensureAuth();
             }
             
             // If not the last attempt, wait before retrying
@@ -55,7 +55,7 @@ async function withRetry<T>(operation: () => Promise<T>, operationName: string):
 export async function getTeams() {
     return withRetry(async () => {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log('Fetching teams...');
         
@@ -111,7 +111,7 @@ export async function getTeams() {
 export async function getTeam(id: string) {
     return withRetry(async () => {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log(`Fetching team with ID: ${id}`);
         
@@ -163,7 +163,7 @@ export async function createTeam(data: {
 }) {
     return withRetry(async () => {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log('Creating new team:', data);
         
@@ -184,7 +184,7 @@ export async function updateTeam(id: string, data: {
 }) {
     return withRetry(async () => {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log(`Updating team ${id} with data:`, data);
         
@@ -200,7 +200,7 @@ export async function updateTeam(id: string, data: {
 export async function deleteTeam(id: string) {
     return withRetry(async () => {
         // Ensure authentication
-        await ensureAdminAuth();
+        await ensureAuth();
         
         console.log(`Deleting team with ID: ${id}`);
         

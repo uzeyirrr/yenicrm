@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { getUsers, User } from '@/lib/userService';
 import { getTeams, Team } from '@/lib/teamService';
-import { getCustomers, Customer } from '@/lib/customerService';
+import { getCustomers } from '@/lib/customerService';
+import { Customer } from '@/lib/types';
 import { Loader2, Trophy, Medal, Award } from 'lucide-react';
-import { pb, ensureAdminAuth } from '@/lib/pocketbase';
+import { pb, ensureAuth } from '@/lib/pocketbase';
 
 // Lider tablosu için kullanıcı tipi
 type LeaderboardUser = User & {
@@ -33,7 +34,7 @@ export default function LeaderboardPage() {
       setError('');
       
       // Ensure we're authenticated
-      await ensureAdminAuth();
+      await ensureAuth();
       
       // Load users, teams, and customers in parallel
       const [usersList, teamsList, customersList] = await Promise.all([

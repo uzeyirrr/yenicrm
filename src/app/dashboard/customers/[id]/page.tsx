@@ -4,7 +4,7 @@ import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCustomer, updateCustomer } from '@/lib/customerService';
 import { getUsers, getCurrentUser, User } from '@/lib/userService';
-import { pb, ensureAdminAuth } from '@/lib/pocketbase';
+import { pb, ensureAuth } from '@/lib/pocketbase';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Customer } from '@/lib/types';
@@ -34,6 +34,7 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
     roof_type: '',
     what_talked: '',
     roof: '',
+    note: '',
     qc_on: 'Yeni',
     qc_final: 'Yeni',
     agent: '',
@@ -51,7 +52,7 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
       
       try {
         // First ensure we're authenticated
-        await ensureAdminAuth();
+        await ensureAuth();
 
         // Load both in parallel with proper error handling
         const results = await Promise.allSettled([
@@ -163,6 +164,36 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
       reader.readAsDataURL(file);
     }
   };
+  
+  // Panodaki görseli yükleme fonksiyonu
+  const handlePasteImage = (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          setRoofImage(file);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setRoofPreview(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+          break;
+        }
+      }
+    }
+  };
+  
+  // Paste event listener'ı ekleyelim
+  useEffect(() => {
+    document.addEventListener('paste', handlePasteImage);
+    
+    return () => {
+      document.removeEventListener('paste', handlePasteImage);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,7 +214,7 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
         await pb.collection('customers').update(resolvedParams.id, formData);
       }
 
-      router.push('/dashboard/customers');
+      router.push('/dashboard/profile');
     } catch (err) {
       console.error('Error updating customer:', err);
       setError('Müşteri güncellenirken bir hata oluştu');
@@ -217,10 +248,10 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Müşteri Düzenle</h1>
           <Link
-            href="/dashboard/customers"
+            href="/dashboard/profile"
             className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
           >
-            Geri
+            Geri Dön
           </Link>
         </div>
 
@@ -440,6 +471,7 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
                   <p className="pl-1">veya sürükleyip bırakın</p>
                 </div>
                 <p className="text-xs text-gray-500">PNG, JPG, GIF max 10MB</p>
+                <p className="text-xs text-gray-500 mt-1">Ayrıca <span className="font-semibold">Ctrl+V</span> ile panodaki görseli yapıştırabilirsiniz</p>
               </div>
             </div>
           </div>
@@ -452,6 +484,18 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
               onChange={handleChange}
               rows={3}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Notlar</label>
+            <textarea
+              name="note"
+              value={formData.note}
+              onChange={handleChange}
+              rows={3}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              placeholder="Müşteri ile ilgili notları buraya ekleyebilirsiniz"
             />
           </div>
 

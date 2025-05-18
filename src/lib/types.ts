@@ -72,6 +72,7 @@ export type Customer = {
     roof_type: string;
     what_talked: string;
     roof: string;
+    note: string;
     qc_on: 'Yeni' | 'Aranacak' | 'Rausgefallen' | 'Rausgefallen WP';
     qc_final: 'Yeni' | 'Okey' | 'Rausgefallen' | 'Rausgefallen WP' | 'Neuleger' | 'Neuleger WP';
     agent: string;
